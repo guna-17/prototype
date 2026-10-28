@@ -20,11 +20,13 @@ import {
   PurchaseOrder,
   StockLedgerEntry,
   TaxConfig,
+  UserAccount,
   UserRole,
   UserSession,
   VendorInvoice,
   VendorMaster,
 } from '../types/erp';
+import { SignupInput, validateSignupInput } from '../utils/authEngine';
 import {
   INITIAL_CUSTOMERS,
   INITIAL_CUSTOMER_INVOICES,
@@ -69,11 +71,18 @@ interface ERPContextType {
   gstr2bRecords: GSTR2BRecord[];
   auditLogs: AuditLog[];
 
-  // User & Navigation Filters
+  // User & Authentication
   currentUser: UserSession;
+  isAuthenticated: boolean;
+  registeredAccounts: UserAccount[];
   activeGodownFilter: 'ALL' | GodownId;
   searchTerm: string;
   notifications: ToastNotification[];
+
+  // Auth Operations
+  login: (email: string, password: string) => { success: boolean; message?: string };
+  signup: (data: SignupInput) => { success: boolean; message?: string };
+  logout: () => void;
 
   // Setters & Actions
   setCurrentUserRole: (role: UserRole) => void;
@@ -205,7 +214,82 @@ const DEFAULT_USERS: Record<UserRole, UserSession> = {
   },
 };
 
+const INITIAL_ACCOUNTS: UserAccount[] = [
+  {
+    ...DEFAULT_USERS.BUSINESS_OWNER,
+    companyName: 'Karnataka Electrical Components Ltd',
+    companyGstin: '29ABCDE1234F1Z5',
+    password: 'password123',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    ...DEFAULT_USERS.PURCHASE_MANAGER,
+    companyName: 'Karnataka Electrical Components Ltd',
+    companyGstin: '29ABCDE1234F1Z5',
+    password: 'password123',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    ...DEFAULT_USERS.WAREHOUSE_MANAGER,
+    companyName: 'Karnataka Electrical Components Ltd',
+    companyGstin: '29ABCDE1234F1Z5',
+    password: 'password123',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    ...DEFAULT_USERS.ACCOUNTS_EXECUTIVE,
+    companyName: 'Karnataka Electrical Components Ltd',
+    companyGstin: '29ABCDE1234F1Z5',
+    password: 'password123',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    ...DEFAULT_USERS.FINANCE_MANAGER,
+    companyName: 'Karnataka Electrical Components Ltd',
+    companyGstin: '29ABCDE1234F1Z5',
+    password: 'password123',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    ...DEFAULT_USERS.ADMINISTRATOR,
+    companyName: 'Karnataka Electrical Components Ltd',
+    companyGstin: '29ABCDE1234F1Z5',
+    password: 'password123',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+];
+
 export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [accounts, setAccounts] = useState<UserAccount[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY + '_ACCOUNTS');
+    return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
+  });
+
+  const [currentUser, setCurrentUser] = useState<UserSession>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY + '_AUTH_SESSION');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback
+      }
+    }
+    return DEFAULT_USERS.BUSINESS_OWNER;
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY + '_AUTH_SESSION');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return Boolean(parsed && parsed.id);
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
+
   // Load persistent or seed data
   const [items, setItems] = useState<ItemMaster[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY + '_ITEMS');
@@ -285,7 +369,6 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ];
   });
 
-  const [currentUser, setCurrentUser] = useState<UserSession>(DEFAULT_USERS.BUSINESS_OWNER);
   const [activeGodownFilter, setActiveGodownFilter] = useState<'ALL' | GodownId>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [notifications, setNotifications] = useState<ToastNotification[]>([]);
@@ -305,6 +388,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEY + '_PAYMENTS', JSON.stringify(paymentTransactions));
     localStorage.setItem(STORAGE_KEY + '_GSTR2B', JSON.stringify(gstr2bRecords));
     localStorage.setItem(STORAGE_KEY + '_AUDIT', JSON.stringify(auditLogs));
+    localStorage.setItem(STORAGE_KEY + '_ACCOUNTS', JSON.stringify(accounts));
   }, [
     items,
     vendors,
@@ -319,6 +403,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     paymentTransactions,
     gstr2bRecords,
     auditLogs,
+    accounts,
   ]);
 
   const notify = (type: ToastNotification['type'], title: string, message: string) => {
@@ -357,9 +442,89 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setCurrentUserRole = (role: UserRole) => {
     const newUser = DEFAULT_USERS[role];
-    setCurrentUser(newUser);
+    const sessionUser: UserSession = {
+      ...newUser,
+      companyName: currentUser.companyName || 'Karnataka Electrical Components Ltd',
+      companyGstin: currentUser.companyGstin || '29ABCDE1234F1Z5',
+    };
+    setCurrentUser(sessionUser);
+    localStorage.setItem(STORAGE_KEY + '_AUTH_SESSION', JSON.stringify(sessionUser));
     logAudit('ROLE_SWITCH', 'SETTINGS', role, `Switched session role to ${role} (${newUser.name})`);
     notify('info', 'Role Switched', `Active view updated to ${role.replace('_', ' ')} (${newUser.name})`);
+  };
+
+  const login = (email: string, password: string): { success: boolean; message?: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+    const account = accounts.find((a) => a.email.toLowerCase() === cleanEmail);
+    if (!account) {
+      return { success: false, message: 'No account registered with this email address.' };
+    }
+    if (account.password !== password) {
+      return { success: false, message: 'Invalid password. Please check your credentials.' };
+    }
+    const session: UserSession = {
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      role: account.role,
+      godownAccess: account.godownAccess || 'ALL',
+      companyName: account.companyName || 'Karnataka Electrical Components Ltd',
+      companyGstin: account.companyGstin || '29ABCDE1234F1Z5',
+    };
+    setCurrentUser(session);
+    setIsAuthenticated(true);
+    localStorage.setItem(STORAGE_KEY + '_AUTH_SESSION', JSON.stringify(session));
+    logAudit('USER_LOGIN', 'SETTINGS', session.id, `User ${session.name} (${session.role}) signed in successfully.`);
+    notify('success', 'Authentication Successful', `Welcome back, ${session.name}! (${session.role.replace('_', ' ')})`);
+    return { success: true };
+  };
+
+  const signup = (data: SignupInput): { success: boolean; message?: string } => {
+    const validation = validateSignupInput(data);
+    if (!validation.valid) {
+      return { success: false, message: validation.errors[0] || 'Invalid sign up input.' };
+    }
+    const cleanEmail = data.email.trim().toLowerCase();
+    if (accounts.some((a) => a.email.toLowerCase() === cleanEmail)) {
+      return { success: false, message: 'An account with this email address already exists.' };
+    }
+    const newAccount: UserAccount = {
+      id: `u-${Date.now()}`,
+      name: data.name.trim(),
+      email: cleanEmail,
+      role: data.role,
+      godownAccess: data.godownAccess || 'ALL',
+      companyName: data.companyName?.trim() || 'Karnataka Electrical Components Ltd',
+      companyGstin: data.companyGstin?.trim().toUpperCase() || '29ABCDE1234F1Z5',
+      password: data.password,
+      createdAt: new Date().toISOString(),
+    };
+    const updatedAccounts = [...accounts, newAccount];
+    setAccounts(updatedAccounts);
+    localStorage.setItem(STORAGE_KEY + '_ACCOUNTS', JSON.stringify(updatedAccounts));
+
+    const session: UserSession = {
+      id: newAccount.id,
+      name: newAccount.name,
+      email: newAccount.email,
+      role: newAccount.role,
+      godownAccess: newAccount.godownAccess,
+      companyName: newAccount.companyName,
+      companyGstin: newAccount.companyGstin,
+    };
+    setCurrentUser(session);
+    setIsAuthenticated(true);
+    localStorage.setItem(STORAGE_KEY + '_AUTH_SESSION', JSON.stringify(session));
+    logAudit('USER_SIGNUP', 'SETTINGS', newAccount.id, `New user ${newAccount.name} registered as ${newAccount.role}.`);
+    notify('success', 'Account Registered', `Welcome to SmartGST ERP, ${newAccount.name}!`);
+    return { success: true };
+  };
+
+  const logout = () => {
+    logAudit('USER_LOGOUT', 'SETTINGS', currentUser.id, `User ${currentUser.name} signed out.`);
+    setIsAuthenticated(false);
+    localStorage.removeItem(STORAGE_KEY + '_AUTH_SESSION');
+    notify('info', 'Signed Out', 'You have been securely signed out.');
   };
 
   // Master Data
@@ -1088,9 +1253,14 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         gstr2bRecords,
         auditLogs,
         currentUser,
+        isAuthenticated,
+        registeredAccounts: accounts,
         activeGodownFilter,
         searchTerm,
         notifications,
+        login,
+        signup,
+        logout,
         setCurrentUserRole,
         setActiveGodownFilter,
         setSearchTerm,

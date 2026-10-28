@@ -479,3 +479,48 @@ test('itc reconciliation: correctly flags matched vs pending 2B vs tax mismatch'
   const item2 = reconResults.find((r) => r.invoiceNumber === 'INV-002');
   assert.equal(item2?.eligibilityStatus, 'Pending 2B');
 });
+
+test('auth engine: validates Karnataka GSTIN (Code 29) formats strictly', async () => {
+  const { isValidKarnatakaGstin, isValidEmail, validatePassword, validateSignupInput } = await import('./authEngine');
+
+  // Valid Karnataka GSTIN
+  assert.equal(isValidKarnatakaGstin('29ABCDE1234F1Z5'), true);
+  assert.equal(isValidKarnatakaGstin('29abcde1234f1z5'), true);
+
+  // Invalid: Not Karnataka (33 is Tamil Nadu, 27 is Maharashtra)
+  assert.equal(isValidKarnatakaGstin('33ABCDE1234F1Z5'), false);
+  assert.equal(isValidKarnatakaGstin('27ABCDE1234F1Z5'), false);
+  // Invalid: Bad length or symbols
+  assert.equal(isValidKarnatakaGstin('29ABCDE1234F'), false);
+  assert.equal(isValidKarnatakaGstin(''), false);
+
+  // Email format
+  assert.equal(isValidEmail('arun@karnatakaelectronics.com'), true);
+  assert.equal(isValidEmail('invalid-email'), false);
+  assert.equal(isValidEmail(''), false);
+
+  // Password length
+  assert.equal(validatePassword('123456').valid, true);
+  assert.equal(validatePassword('12345').valid, false);
+
+  // Full signup validation
+  const validSignup = validateSignupInput({
+    name: 'Anand Hegde',
+    email: 'anand@karnatakaelectronics.com',
+    password: 'password123',
+    confirmPassword: 'password123',
+    role: 'BUSINESS_OWNER',
+    companyGstin: '29ABCDE1234F1Z5',
+  });
+  assert.equal(validSignup.valid, true);
+
+  const mismatchSignup = validateSignupInput({
+    name: 'Anand Hegde',
+    email: 'anand@karnatakaelectronics.com',
+    password: 'password123',
+    confirmPassword: 'wrongpassword',
+    role: 'BUSINESS_OWNER',
+  });
+  assert.equal(mismatchSignup.valid, false);
+  assert.match(mismatchSignup.errors[0], /do not match/);
+});

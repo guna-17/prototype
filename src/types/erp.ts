@@ -17,6 +17,13 @@ export interface UserSession {
   email: string;
   role: UserRole;
   godownAccess?: string; // 'ALL' | 'GODOWN_A' | 'GODOWN_B'
+  companyName?: string;
+  companyGstin?: string;
+}
+
+export interface UserAccount extends UserSession {
+  password: string;
+  createdAt: string;
 }
 
 export type GodownId = 'GODOWN_A' | 'GODOWN_B';

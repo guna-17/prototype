@@ -16,9 +16,9 @@ import { GstItcView } from './components/gst/GstItcView';
 import { PayablesReceivablesView } from './components/payablesReceivables/PayablesReceivablesView';
 import { ReportsView } from './components/reports/ReportsView';
 import { AuditTrailView } from './components/audit/AuditTrailView';
-import { DataImportView } from './components/import/DataImportView';
 import { SettingsMasterView } from './components/settings/SettingsMasterView';
 import { NotificationToast } from './components/common/NotificationToast';
+import { AuthView } from './components/auth/AuthView';
 
 const TAB_TITLES: Record<NavTab, { title: string; subtitle: string }> = {
   overview: {
@@ -57,10 +57,6 @@ const TAB_TITLES: Record<NavTab, { title: string; subtitle: string }> = {
     title: 'Audit Trail',
     subtitle: 'Immutable Governance, Price Overrides & Security Log',
   },
-  data_import: {
-    title: 'Data Import Center',
-    subtitle: 'Pre-Commit Schema Mapping, Validation & Scenario Dataset',
-  },
   settings: {
     title: 'Master Settings',
     subtitle: 'Item Catalogs, Vendors, Customers & GST Schedules',
@@ -68,8 +64,18 @@ const TAB_TITLES: Record<NavTab, { title: string; subtitle: string }> = {
 };
 
 function MainApp() {
+  const { isAuthenticated } = useERP();
   const [currentTab, setCurrentTab] = useState<NavTab>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <AuthView />
+        <NotificationToast />
+      </>
+    );
+  }
 
   const { title, subtitle } = TAB_TITLES[currentTab] || {
     title: 'SmartGST ERP',
@@ -120,8 +126,6 @@ function MainApp() {
           {currentTab === 'reports' && <ReportsView />}
 
           {currentTab === 'audit_trail' && <AuditTrailView />}
-
-          {currentTab === 'data_import' && <DataImportView />}
 
           {currentTab === 'settings' && <SettingsMasterView />}
         </main>

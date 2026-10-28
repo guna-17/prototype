@@ -10,10 +10,10 @@ import {
   IndianRupee,
   FileBarChart2,
   History,
-  UploadCloud,
   Settings,
   Building2,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 
 export type NavTab =
@@ -26,7 +26,6 @@ export type NavTab =
   | 'payables_receivables'
   | 'reports'
   | 'audit_trail'
-  | 'data_import'
   | 'settings';
 
 interface SidebarProps {
@@ -42,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile,
   onCloseMobile,
 }) => {
-  const { kpis, currentUser } = useERP();
+  const { kpis, currentUser, logout } = useERP();
 
   const navItems: {
     id: NavTab;
@@ -94,8 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { id: 'reports', label: '8. Reports', icon: FileBarChart2 },
     { id: 'audit_trail', label: '9. Audit Trail', icon: History },
-    { id: 'data_import', label: '10. Data Import', icon: UploadCloud },
-    { id: 'settings', label: '11. Settings', icon: Settings },
+    { id: 'settings', label: '10. Settings', icon: Settings },
   ];
 
   const handleNavClick = (tabId: NavTab) => {
@@ -196,6 +194,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {currentUser.role.replace('_', ' ')}
               </p>
             </div>
+            <button
+              onClick={logout}
+              title="Sign Out of ERP"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-700/60 rounded-lg transition cursor-pointer"
+              aria-label="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </aside>

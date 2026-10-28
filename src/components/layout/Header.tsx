@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Calendar,
   AlertTriangle,
+  LogOut,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -41,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
     setSearchTerm,
     resetToSeedData,
     kpis,
+    logout,
   } = useERP();
 
   return (
@@ -116,6 +118,16 @@ export const Header: React.FC<HeaderProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Sign Out Button */}
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+            title="Sign out of current ERP session"
+          >
+            <LogOut className="w-3.5 h-3.5 text-rose-600" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
 
           {/* Date Indicator */}
           <div className="hidden xl:flex items-center gap-1.5 text-slate-600 bg-slate-100/70 px-2.5 py-1 rounded-lg text-xs font-medium">
