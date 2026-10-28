@@ -1,0 +1,8 @@
+{
+  "name": "Remix uniwork",
+  "description": "Unified Procurement, Inventory, 3-Way Invoice Matching, and GST Reconciliation ERP for Electrical Components Manufacturing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
