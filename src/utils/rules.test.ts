@@ -524,3 +524,151 @@ test('auth engine: validates Karnataka GSTIN (Code 29) formats strictly', async 
   assert.equal(mismatchSignup.valid, false);
   assert.match(mismatchSignup.errors[0], /do not match/);
 });
+
+test('global search engine: searches across POs, Inventory items, and Invoices by ID, number, or name', async () => {
+  const { searchGlobalRecords } = await import('./searchEngine');
+
+  const mockPOs: PurchaseOrder[] = [
+    {
+      id: 'po-101',
+      poNumber: 'PO-2026-001',
+      vendorId: 'v-1',
+      vendorName: 'Kaveri Electro Metals',
+      vendorGstin: '29ABCDE1234F1Z5',
+      vendorStateCode: '29',
+      orderDate: '2026-08-01',
+      expectedDeliveryDate: '2026-08-10',
+      destinationGodownId: 'GODOWN_A',
+      status: 'Approved',
+      lines: [
+        {
+          id: 'pol-1',
+          itemId: 'item-1',
+          sku: 'SW-RELAY-12V',
+          itemName: '12V PCB Relay',
+          hsnCode: '8536',
+          quantity: 100,
+          receivedQuantity: 100,
+          unitPrice: 80,
+          uom: 'PCS',
+          taxRate: 18,
+          taxableAmount: 8000,
+          cgstAmount: 720,
+          sgstAmount: 720,
+          igstAmount: 0,
+          totalAmount: 9440,
+        },
+      ],
+      subtotalTaxable: 8000,
+      cgstTotal: 720,
+      sgstTotal: 720,
+      igstTotal: 0,
+      grandTotal: 9440,
+      createdBy: 'Purchase Manager',
+      createdAt: '2026-08-01T10:00:00Z',
+      updatedAt: '2026-08-01T10:00:00Z',
+    },
+  ];
+
+  const mockItems: ItemMaster[] = [
+    {
+      id: 'item-1',
+      sku: 'SW-RELAY-12V',
+      name: '12V PCB Relay',
+      description: 'Switchgear component',
+      category: 'Electrical Components',
+      uom: 'PCS',
+      hsnCode: '8536',
+      taxRate: 18,
+      reorderLevel: 100,
+      reorderQuantity: 200,
+      standardCost: 85,
+      active: true,
+    },
+    {
+      id: 'item-2',
+      sku: 'CB-COPPER-1MM',
+      name: 'Enamelled Copper Wire 1mm',
+      description: 'Winding wire',
+      category: 'Wiring & Cables',
+      uom: 'KG',
+      hsnCode: '8544',
+      taxRate: 18,
+      reorderLevel: 50,
+      reorderQuantity: 150,
+      standardCost: 750,
+      active: true,
+    },
+  ];
+
+  const mockInvoices: VendorInvoice[] = [
+    {
+      id: 'inv-1',
+      invoiceNumber: 'INV-KM-101',
+      invoiceDate: '2026-08-06',
+      vendorId: 'v-1',
+      vendorName: 'Kaveri Electro Metals',
+      vendorGstin: '29ABCDE1234F1Z5',
+      poId: 'po-101',
+      poNumber: 'PO-2026-001',
+      items: [],
+      taxableTotal: 8000,
+      cgstTotal: 720,
+      sgstTotal: 720,
+      igstTotal: 0,
+      grandTotal: 9440,
+      dueDate: '2026-09-06',
+      matchStatus: 'Matched',
+      discrepancies: [],
+      approvalStatus: 'Approved for Payment',
+      amountPaid: 0,
+      paymentStatus: 'Unpaid',
+      createdAt: '2026-08-06T10:00:00Z',
+    },
+  ];
+
+  // 1. Search by PO Number
+  const poResult = searchGlobalRecords('PO-2026-001', {
+    purchaseOrders: mockPOs,
+    items: mockItems,
+    vendorInvoices: mockInvoices,
+  });
+  assert.equal(poResult.purchaseOrders.length, 1);
+  assert.equal(poResult.purchaseOrders[0].number, 'PO-2026-001');
+
+  // 2. Search by Item SKU
+  const itemResult = searchGlobalRecords('SW-RELAY', {
+    purchaseOrders: mockPOs,
+    items: mockItems,
+    vendorInvoices: mockInvoices,
+  });
+  assert.equal(itemResult.items.length, 1);
+  assert.equal(itemResult.items[0].sku, 'SW-RELAY-12V');
+
+  // 3. Search by Invoice Number
+  const invResult = searchGlobalRecords('INV-KM-101', {
+    purchaseOrders: mockPOs,
+    items: mockItems,
+    vendorInvoices: mockInvoices,
+  });
+  assert.equal(invResult.invoices.length, 1);
+  assert.equal(invResult.invoices[0].invoiceNumber, 'INV-KM-101');
+
+  // 4. Cross-domain search by vendor name
+  const vendorResult = searchGlobalRecords('Kaveri', {
+    purchaseOrders: mockPOs,
+    items: mockItems,
+    vendorInvoices: mockInvoices,
+  });
+  assert.equal(vendorResult.purchaseOrders.length, 1);
+  assert.equal(vendorResult.invoices.length, 1);
+  assert.equal(vendorResult.totalMatches >= 2, true);
+
+  // 5. Empty query returns 0 matches
+  const emptyResult = searchGlobalRecords('', {
+    purchaseOrders: mockPOs,
+    items: mockItems,
+    vendorInvoices: mockInvoices,
+  });
+  assert.equal(emptyResult.totalMatches, 0);
+});

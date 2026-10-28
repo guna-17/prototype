@@ -27,6 +27,7 @@ export const InvoiceMatchingView: React.FC = () => {
     updateInvoiceApproval,
     currentUser,
     notify,
+    searchTerm,
   } = useERP();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,9 +39,25 @@ export const InvoiceMatchingView: React.FC = () => {
 
   // Filtered invoices
   const filteredInvoices = vendorInvoices.filter((inv) => {
-    if (statusFilter === 'ALL') return true;
-    if (statusFilter === 'DISCREPANCIES') return inv.matchStatus !== 'Matched';
-    return inv.matchStatus === statusFilter;
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'DISCREPANCIES') {
+        if (inv.matchStatus === 'Matched') return false;
+      } else if (inv.matchStatus !== statusFilter) {
+        return false;
+      }
+    }
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const matchInv = inv.invoiceNumber.toLowerCase().includes(term);
+      const matchVendor = inv.vendorName.toLowerCase().includes(term);
+      const matchPO = inv.poNumber?.toLowerCase().includes(term);
+      const matchGRN = inv.grnNumber?.toLowerCase().includes(term);
+      const matchItems = inv.items?.some(
+        (it) => it.sku.toLowerCase().includes(term) || it.itemName.toLowerCase().includes(term)
+      );
+      if (!matchInv && !matchVendor && !matchPO && !matchGRN && !matchItems) return false;
+    }
+    return true;
   });
 
   const getMatchBadgeVariant = (status: InvoiceMatchStatus) => {

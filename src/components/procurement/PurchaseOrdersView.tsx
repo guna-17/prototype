@@ -22,7 +22,7 @@ interface PurchaseOrdersViewProps {
 }
 
 export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onNavigateToGRN }) => {
-  const { purchaseOrders, updatePOStatus, currentUser, activeGodownFilter } = useERP();
+  const { purchaseOrders, updatePOStatus, currentUser, activeGodownFilter, searchTerm } = useERP();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
@@ -39,6 +39,16 @@ export const PurchaseOrdersView: React.FC<PurchaseOrdersViewProps> = ({ onNaviga
     }
     if (vendorFilter !== 'ALL' && po.vendorId !== vendorFilter) {
       return false;
+    }
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const matchPO = po.poNumber.toLowerCase().includes(term);
+      const matchVendor = po.vendorName.toLowerCase().includes(term);
+      const matchId = po.id.toLowerCase().includes(term);
+      const matchLine = po.lines?.some(
+        (l) => l.sku.toLowerCase().includes(term) || l.itemName.toLowerCase().includes(term)
+      );
+      if (!matchPO && !matchVendor && !matchId && !matchLine) return false;
     }
     return true;
   });

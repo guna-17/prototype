@@ -96,6 +96,7 @@ function MainApp() {
       <div className="lg:pl-64 flex flex-col flex-1 min-w-0">
         <Header
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          onNavigate={(tab) => setCurrentTab(tab)}
           title={title}
           subtitle={subtitle}
         />
